@@ -7,3 +7,5 @@ venv/
 *.egg-info/
 .pytest_cache/
 source.zip
+test_log_*.txt
+test_result_*.txt
