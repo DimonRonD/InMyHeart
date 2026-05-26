@@ -7,5 +7,10 @@ venv/
 *.egg-info/
 .pytest_cache/
 source.zip
+*.7z
 test_log_*.txt
 test_result_*.txt
+data/telegram_client_topics.json
+data/inmyheart.db
+data/test_inmyheart.db
+data/ci_inmyheart.db

@@ -72,7 +72,7 @@ class InMyHeartAssistant:
         ]
         return "\n\n".join(lines)
 
-    def _handoff(self, route: str, question: str, bot_reply: str) -> str:
+    def _build_handoff_summary(self, route: str, question: str, bot_reply: str) -> str:
         template = self.prompts["handoff"]
         system = template.split("Категория маршрутизации:")[0].strip()
         if "Категория маршрутизации:" in template:
@@ -85,8 +85,7 @@ class InMyHeartAssistant:
                 dialog_summary=self._dialog_summary(),
                 question=question,
             )
-        summary = chat(system, user, temperature=0.2)
-        return f"{bot_reply}\n\n---\n📋 Резюме для оператора:\n{summary}"
+        return chat(system, user, temperature=0.2)
 
     def _quality_check_llm(self, context: str, draft: str) -> tuple[bool, str]:
         template = self.prompts["quality_check"]
@@ -160,18 +159,18 @@ class InMyHeartAssistant:
 
         if route in ("MED", "RESULTS"):
             answer = chat(self.prompts["medical"], question, temperature=0.2)
-            full = self._handoff(route, question, answer)
+            summary = self._build_handoff_summary(route, question, answer)
             self._history.append((question, answer))
-            return AssistantResponse(full, route, True, handoff_summary=full)
+            return AssistantResponse(answer, route, True, handoff_summary=summary)
 
         if route == "OTHER":
             template = self.prompts["no_context"]
             system = template.split("Вопрос пользователя:")[0].strip()
             user = f"Вопрос пользователя:\n{question}"
             answer = chat(system, user, temperature=0.2)
-            full = self._handoff(route, question, answer)
+            summary = self._build_handoff_summary(route, question, answer)
             self._history.append((question, answer))
-            return AssistantResponse(full, route, True, handoff_summary=full)
+            return AssistantResponse(answer, route, True, handoff_summary=summary)
 
         retrieval = retrieve(self.store, question)
         if not retrieval.sufficient or not retrieval.context:
@@ -179,14 +178,14 @@ class InMyHeartAssistant:
             system = template.split("Вопрос пользователя:")[0].strip()
             user = f"Вопрос пользователя:\n{question}"
             answer = chat(system, user, temperature=0.2)
-            full = self._handoff("ORG_NO_RAG", question, answer)
+            summary = self._build_handoff_summary("ORG_NO_RAG", question, answer)
             self._history.append((question, answer))
             return AssistantResponse(
-                full,
+                answer,
                 "ORG",
                 True,
                 rag_distance=retrieval.best_distance,
-                handoff_summary=full,
+                handoff_summary=summary,
                 retrieval=retrieval,
             )
 
@@ -201,15 +200,15 @@ class InMyHeartAssistant:
 
         if not quality_ok:
             reject_reply = self._quality_reject_reply(question)
-            full = self._handoff("ORG_QUALITY_REJECT", question, reject_reply)
+            summary = self._build_handoff_summary("ORG_QUALITY_REJECT", question, reject_reply)
             self._history.append((question, reject_reply))
             return AssistantResponse(
-                full,
+                reject_reply,
                 "ORG",
                 True,
                 sources=retrieval.sources,
                 rag_distance=retrieval.best_distance,
-                handoff_summary=full,
+                handoff_summary=summary,
                 retrieval=retrieval,
                 quality_check_passed=False,
                 draft_answer=draft,

@@ -2,12 +2,16 @@
 """Прогон test_questions.md с логом и AI-оценкой качества ответов."""
 from __future__ import annotations
 
+import re
+import time
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
+from bot.db import init_db, insert_kpi_metric
+from bot.dialog_log import log_test_accuracy
 from rag.assistant import AssistantResponse, InMyHeartAssistant
-from rag.config import ENABLE_QUALITY_CHECK, PROJECT_ROOT, RAG_MAX_DISTANCE, RAG_TOP_K
+from rag.config import ENABLE_QUALITY_CHECK, KPI_RESPONSE_SLA_MS, PROJECT_ROOT, RAG_MAX_DISTANCE, RAG_TOP_K
 from rag.llm import chat
 from rag.retrieval import ScoredChunk
 
@@ -194,12 +198,16 @@ def run_test_suite(
     print_response=None,
 ) -> tuple[Path, Path]:
     log_path, result_path = test_output_paths(root)
+    init_db()
     started = datetime.now()
     cases: list[TestCaseResult] = []
+    response_times_ms: list[float] = []
 
     for i, item in enumerate(questions, 1):
         assistant.reset_history()
+        t0 = time.perf_counter()
         resp = assistant.ask(item["question"])
+        response_times_ms.append((time.perf_counter() - t0) * 1000)
         cases.append(
             TestCaseResult(
                 number=i,
@@ -222,5 +230,26 @@ def run_test_suite(
         f"{'=' * 80}\n\n"
     )
     result_path.write_text(result_header + result_content, encoding="utf-8")
+
+    if response_times_ms:
+        avg_ms = sum(response_times_ms) / len(response_times_ms)
+        insert_kpi_metric(
+            metric_name="test_avg_response_ms",
+            metric_value=avg_ms,
+            details={"count": len(response_times_ms)},
+        )
+        sla_rate = sum(1 for ms in response_times_ms if ms <= KPI_RESPONSE_SLA_MS) / len(response_times_ms)
+        insert_kpi_metric(
+            metric_name="test_response_sla_rate",
+            metric_value=sla_rate,
+            details={"sla_ms": KPI_RESPONSE_SLA_MS, "avg_ms": avg_ms},
+        )
+
+    match = re.search(r"PASS:\s*(\d+)", result_content)
+    if match:
+        pass_count = int(match.group(1))
+        total = len(cases)
+        if total:
+            log_test_accuracy(pass_count=pass_count, total=total, pass_rate=pass_count / total)
 
     return log_path, result_path

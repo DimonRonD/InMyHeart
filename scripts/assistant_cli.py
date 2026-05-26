@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import argparse
-import re
 import sys
 from pathlib import Path
 
@@ -23,6 +22,7 @@ load_dotenv(ROOT / ".env")
 
 from rag.assistant import InMyHeartAssistant
 from rag.indexer import KnowledgeBaseIndexer
+from rag.test_questions_parser import parse_test_questions
 from rag.test_runner import run_test_suite
 
 
@@ -72,26 +72,7 @@ def _print_response(resp) -> None:
     print(f"Ассистент: {resp.answer}\n")
 
 
-def parse_test_questions(path: Path) -> list[dict]:
-    text = path.read_text(encoding="utf-8")
-    blocks = re.split(r"\n---+\n", text)
-    items = []
-    for block in blocks:
-        block = block.strip()
-        if not block:
-            continue
-        q_match = re.search(r"\*\*Вопрос:\*\*\s*(.+)", block)
-        if not q_match:
-            continue
-        cat_match = re.search(r"\*\*Ожидание:\*\*\s*(.+)", block)
-        items.append({
-            "question": q_match.group(1).strip(),
-            "expected": cat_match.group(1).strip() if cat_match else "",
-        })
-    return items
-
-
-def run_tests(assistant: InMyHeartAssistant, path: Path) -> None:
+from rag.test_questions_parser import parse_test_questions
     questions = parse_test_questions(path)
     if not questions:
         print(f"В {path} не найдено тестовых вопросов.")

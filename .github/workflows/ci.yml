@@ -1,0 +1,41 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install pytest httpx
+
+      - name: Index knowledge base
+        run: python scripts/index_knowledge_base.py --reset
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+
+      - name: Run pytest (programmatic scenarios + API)
+        run: pytest tests/ -m integration -v --tb=short
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          DIALOG_DB_PATH: ./data/ci_inmyheart.db
+
+      - name: Upload KPI database artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: kpi-sqlite
+          path: data/ci_inmyheart.db
+          if-no-files-found: ignore

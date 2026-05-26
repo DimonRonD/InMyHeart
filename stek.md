@@ -26,10 +26,11 @@ flowchart TB
         CLI2[scripts/query_knowledge_base.py]
     end
 
-    subgraph planned [Планируется по ТЗ]
+    subgraph planned [Реализовано]
         TG[Telegram Bot API]
-        API[FastAPI / веб-чат]
+        API[FastAPI /ask + /health]
         LLM[OpenAI Chat — генерация ответа]
+        SQL[(SQLite — логи и KPI)]
     end
 
     DOC --> GEN
@@ -49,9 +50,10 @@ flowchart TB
 | Векторное хранилище | Реализовано | ChromaDB (локальный persist) |
 | Эмбеддинги | Реализовано | OpenAI `text-embedding-3-small` (основной) |
 | Семантический поиск | Реализовано | LangChain + Chroma |
-| Генерация ответа (LLM) | По ТЗ, в разработке | OpenAI Chat API |
-| Интерфейс пользователя | По ТЗ, в разработке | Telegram-бот, опционально веб-чат |
-| Backend API | По ТЗ, в разработке | FastAPI (рекомендация ТЗ) |
+| Генерация ответа (LLM) | Реализовано | OpenAI Chat API (`gpt-4o-mini`) |
+| Интерфейс пользователя | Реализовано (MVP) | Telegram-бот, CLI, FastAPI |
+| Backend API | Реализовано (MVP) | FastAPI `/health`, `/ask` |
+| Логи и KPI | Реализовано | SQLite `data/inmyheart.db` |
 
 ---
 
@@ -102,7 +104,7 @@ flowchart TB
 | Задача | Ответ на русском языке с опорой на retrieved chunks |
 | Ограничения | Без диагнозов, без назначения лечения, эскалация к врачу/администратору |
 
-На текущем этапе репозитория реализованы **индексация и поиск**; цепочка «запрос → retrieval → LLM → ответ» подключается на следующем этапе MVP.
+На текущем этапе реализованы **индексация, RAG-диалог, CLI, FastAPI, Telegram-бот, SQLite-логи и pytest**.
 
 ### 3.5. Векторная база данных
 
@@ -190,17 +192,19 @@ flowchart TB
 
 ## 7. Интерфейсы и интеграции
 
-### 7.1. Реализовано сейчас
+### 7.1. Реализовано
 
-- **CLI** — индексация и тестовый поиск из терминала.
+- **CLI** — индексация и ассистент
+- **FastAPI** — `scripts/run_api.py`, эндпоинты `/health`, `/ask`
+- **Telegram-бот** — `scripts/telegram_bot.py`, Forum Topics, relay, SQLite
 
-### 7.2. По техническому заданию (план)
+### 7.2. По техническому заданию (осталось)
 
 | Интерфейс | Технология | Назначение |
 |-----------|------------|------------|
-| **Telegram-бот** | Telegram Bot API, `TELEGRAM_BOT_TOKEN` | Основной канал для пациентов |
-| **Веб-чат** | HTML/JS + backend | Альтернативный канал |
-| **REST API** | **FastAPI** (указано в ТЗ) | Backend для бота и чата |
+| **Telegram-бот** | Telegram Bot API | Основной канал для пациентов ✅ |
+| **REST API** | **FastAPI** | `/health`, `/ask` ✅ |
+| **Веб-чат** | HTML/JS + `/ask` | Альтернативный канал (план) |
 | **CRM / МИС** | Could have | Не входит в MVP |
 
 Рекомендуемые Python-библиотеки для следующего этапа (добавить в `requirements.txt` при реализации):
@@ -288,11 +292,13 @@ pypdf>=5.0.0
 | ✅ 1 | Документы и чанкинг | `source/`, `rag/chunking.py` |
 | ✅ 2 | Векторный индекс | ChromaDB + OpenAI Embeddings |
 | ✅ 3 | Тест retrieval | `query_knowledge_base.py` |
-| 🔲 4 | RAG-цепочка с LLM | LangChain LCEL / RetrievalQA |
-| 🔲 5 | Telegram-бот | aiogram / python-telegram-bot |
-| 🔲 6 | FastAPI + healthcheck | uvicorn |
-| 🔲 7 | Логирование диалогов | SQLite / JSONL |
-| 🔲 8 | Фильтр медицинских/опасных запросов | Rules + классификатор промптом |
+| ✅ 4 | RAG-цепочка с LLM | LangChain + OpenAI Chat |
+| ✅ 5 | Telegram-бот | python-telegram-bot, Forum Topics, relay |
+| ✅ 6 | FastAPI + healthcheck | uvicorn, `/health`, `/ask` |
+| ✅ 7 | Логирование диалогов | SQLite + PII redact |
+| ✅ 8 | Фильтр MED/PII + pytest | классификатор + `tests/` |
+| 🔲 9 | Веб-чат | HTML → FastAPI |
+| 🔲 10 | Боевые документы клиники | замена `source/` |
 
 ---
 
@@ -308,4 +314,4 @@ pypdf>=5.0.0
 
 ---
 
-*Документ актуален для состояния репозитория InMyHeart на этапе MVP: индексация RAG реализована, диалоговый слой и Telegram — в плане.*
+*Документ актуален для MVP: RAG, CLI, FastAPI, Telegram-бот, SQLite-логи, pytest. База `source/` — синтетическая (см. `source/DATA_NOTICE.md`).*
