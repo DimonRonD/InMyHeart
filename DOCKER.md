@@ -180,16 +180,111 @@ docker compose exec api pytest tests/ -m integration -v
 
 ---
 
-## 10. Продакшен на VPS
+## 10. Продакшен на Debian (`/opt/inmyheart`)
 
-1. Установить Docker на VPS (Hetzner, Timeweb, Yandex Cloud).
-2. Клонировать репозиторий, создать `.env`.
-3. `docker compose up --build -d`
-4. Открыть порт **8000** (или прокси nginx → `/ask` для будущего веб-чата).
-5. Telegram: polling работает без белого IP; webhook — отдельная доработка.
-6. Мониторинг: внешний ping `GET /health`, алерт при падении контейнера.
+Пошаговая установка на чистый **Debian 11/12** (VPS). Приложение работает через **Docker Compose** — Python на сервере ставить не нужно.
 
-Стоимость VPS заложена в [`costs.md`](../costs.md) (~$35/мес).
+### 10.1. Подключитесь к серверу по SSH
+
+```bash
+ssh root@ВАШ_IP
+# или: ssh user@ВАШ_IP && sudo -i
+```
+
+### 10.2. Автоматический деплой (рекомендуется)
+
+```bash
+apt-get update && apt-get install -y git
+git clone https://github.com/DimonRonD/InMyHeart.git /opt/inmyheart
+cd /opt/inmyheart
+cp .env.example .env
+nano .env   # OPENAI_API_KEY, TELEGRAM_BOT_TOKEN, TELEGRAM_OPERATOR_CHAT_ID
+sudo bash scripts/deploy_debian.sh
+```
+
+Скрипт `scripts/deploy_debian.sh`:
+- ставит Docker (если нет);
+- клонирует/обновляет репозиторий в `/opt/inmyheart`;
+- проверяет `.env`;
+- выполняет `docker compose up --build -d`;
+- ждёт `GET /health`.
+
+### 10.3. Ручная установка (пошагово)
+
+```bash
+# 1. Пакеты
+apt-get update
+apt-get install -y git ca-certificates curl
+
+# 2. Docker Engine + Compose plugin
+curl -fsSL https://get.docker.com | sh
+systemctl enable docker && systemctl start docker
+docker compose version
+
+# 3. Каталог и код
+mkdir -p /opt/inmyheart
+git clone https://github.com/DimonRonD/InMyHeart.git /opt/inmyheart
+cd /opt/inmyheart
+
+# 4. Секреты (не коммитьте .env!)
+cp .env.example .env
+nano .env
+```
+
+Минимум в `.env`:
+
+```env
+OPENAI_API_KEY=sk-...
+TELEGRAM_BOT_TOKEN=...
+TELEGRAM_OPERATOR_CHAT_ID=-100...
+TELEGRAM_HANDOFF_MODE=relay
+TELEGRAM_USE_FORUM_TOPICS=true
+```
+
+```bash
+# 5. Запуск
+cd /opt/inmyheart
+docker compose up --build -d
+
+# 6. Проверка (первая индексация — 2–5 мин)
+docker compose ps
+docker compose logs -f api
+curl http://127.0.0.1:8000/health
+```
+
+Ожидаемый ответ: `{"status":"ok","indexed_chunks":242}` (число может отличаться).
+
+### 10.4. Firewall и доступ
+
+```bash
+# ufw (если используется)
+ufw allow OpenSSH
+ufw allow 8000/tcp    # только если API нужен снаружи
+ufw enable
+```
+
+Telegram-бот работает через **long polling** — входящий порт для бота не нужен.  
+Порт **8000** открывайте только если нужен внешний доступ к `/ask` (лучше через nginx + HTTPS).
+
+### 10.5. Автозапуск
+
+`docker compose` с `restart: unless-stopped` в `docker-compose.yml` — контейнеры поднимаются после перезагрузки VPS, если Docker запущен:
+
+```bash
+systemctl is-enabled docker   # enabled
+```
+
+### 10.6. Обновление версии
+
+```bash
+cd /opt/inmyheart
+git pull
+docker compose up --build -d
+```
+
+### 10.7. Другие VPS
+
+Те же шаги подходят для Hetzner, Timeweb, Yandex Cloud. Стоимость — [`costs.md`](costs.md) (~$35/мес).
 
 ---
 
