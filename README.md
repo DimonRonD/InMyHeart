@@ -109,3 +109,4 @@ pytest tests/ -m integration -v
 - Репозиторий: https://github.com/DimonRonD/InMyHeart.git
 - Операторы: [`operator_handoff.md`](operator_handoff.md)
 - Стек: [`stek.md`](stek.md)
+- **Статус vs ТЗ:** [`TZ_STATUS.md`](TZ_STATUS.md)
