@@ -8,7 +8,6 @@ from bot.db import init_db
 from bot.dialog_log import log_bot_response, log_user_message
 from bot.session import BotSessionManager
 from rag.assistant import AssistantResponse
-from rag.indexer import KnowledgeBaseIndexer
 
 
 class AssistantApiService:
@@ -20,9 +19,10 @@ class AssistantApiService:
     def ensure_index(self) -> int:
         count = self._sessions.ensure_index()
         if count == 0:
-            KnowledgeBaseIndexer().index(reset=True)
-            count = self._sessions.ensure_index()
-        self._indexed = count > 0
+            raise RuntimeError(
+                "Chroma index is empty. Run: docker compose run --rm index"
+            )
+        self._indexed = True
         return count
 
     def ask(self, question: str, *, user_id: int = 0, reset_history: bool = False) -> tuple[AssistantResponse, float]:

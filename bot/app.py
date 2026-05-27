@@ -28,7 +28,6 @@ from bot.telegram_config import operator_chat_id
 from rag.assistant import AssistantResponse
 from rag.config import TELEGRAM_BOT_TOKEN, TELEGRAM_OPERATOR_SESSION_TIMEOUT_SEC
 from rag.embeddings import validate_openai_api_key
-from rag.indexer import KnowledgeBaseIndexer
 
 logger = logging.getLogger(__name__)
 
@@ -53,10 +52,12 @@ TIMEOUT_JOB_NAME = "operator_session_timeout"
 
 def ensure_rag_indexed() -> None:
     sessions = get_sessions()
-    if sessions.ensure_index() == 0:
-        logger.info("Индекс RAG пуст — выполняется индексация source/")
-        stats = KnowledgeBaseIndexer().index(reset=True)
-        logger.info("Проиндексировано чанков: %s", stats["total_chunks"])
+    count = sessions.ensure_index()
+    if count == 0:
+        raise RuntimeError(
+            "RAG index empty. Start stack with: docker compose up -d (runs index service first)"
+        )
+    logger.info("RAG index ready: %s chunks", count)
 
 
 async def _send_typing(context: ContextTypes.DEFAULT_TYPE, chat_id: int) -> None:

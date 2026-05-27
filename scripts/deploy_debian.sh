@@ -61,10 +61,20 @@ if grep -q 'sk-\.\.\.' .env || grep -q '123456789:ABC' .env; then
   die "В .env остались шаблонные значения. Отредактируйте $INSTALL_DIR/.env"
 fi
 
-log "Сборка и запуск контейнеров (api + bot)..."
+log "Подготовка каталога данных (bind mount ./data)..."
+mkdir -p "$INSTALL_DIR/data/chroma"
+chmod -R 777 "$INSTALL_DIR/data"
+
+log "Сборка и запуск контейнеров (index → api → bot)..."
 $COMPOSE up --build -d
 
-log "Ожидание healthcheck API (до ~3 мин при первой индексации)..."
+log "Проверка однократной индексации..."
+if ! $COMPOSE logs index 2>/dev/null | grep -q "Индексация завершена"; then
+  log "Сервис index ещё выполняется или завершился с ошибкой. Логи:"
+  $COMPOSE logs --tail 80 index || true
+fi
+
+log "Ожидание healthcheck API (до ~3 мин)..."
 for i in $(seq 1 36); do
   if curl -sf "http://127.0.0.1:8000/health" >/dev/null 2>&1; then
     curl -s "http://127.0.0.1:8000/health"
@@ -74,6 +84,7 @@ for i in $(seq 1 36); do
   sleep 5
   if [[ "$i" -eq 36 ]]; then
     log "Healthcheck не прошёл за 3 мин. Смотрите логи:"
+    $COMPOSE logs --tail 50 index
     $COMPOSE logs --tail 50 api
     exit 1
   fi
@@ -88,7 +99,7 @@ cat <<EOF
 Полезные команды:
   cd $INSTALL_DIR
   docker compose ps
-  docker compose logs -f api bot
+  docker compose logs -f index api bot
   curl http://127.0.0.1:8000/health
 
 Обновление после git push:
