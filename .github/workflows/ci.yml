@@ -5,9 +5,11 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  workflow_dispatch:
 
 jobs:
-  test:
+  smoke:
+    name: smoke
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -17,23 +19,68 @@ jobs:
           python-version: "3.12"
 
       - name: Install dependencies
+        run: pip install -r requirements-docker.txt
+
+      - name: Parse test scenarios
         run: |
-          pip install -r requirements.txt
-          pip install pytest httpx
+          python - <<'PY'
+          from pathlib import Path
+          from rag.test_questions_parser import parse_test_questions
+          cases = parse_test_questions(Path("test_questions.md"))
+          assert len(cases) >= 20, len(cases)
+          print(f"OK: {len(cases)} test cases")
+          PY
+
+      - name: Dry-run chunking
+        run: python scripts/index_knowledge_base.py --dry-run
+
+  integration:
+    name: integration (OpenAI)
+    runs-on: ubuntu-latest
+    needs: smoke
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Check OpenAI secret
+        id: openai
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          if [ -n "$OPENAI_API_KEY" ]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Skip integration (no OPENAI_API_KEY)
+        if: steps.openai.outputs.configured != 'true'
+        run: |
+          echo "OPENAI_API_KEY не задан в GitHub → Settings → Secrets → Actions."
+          echo "Integration-тесты пропущены; job считается успешным."
+
+      - name: Install dependencies
+        if: steps.openai.outputs.configured == 'true'
+        run: pip install -r requirements.txt
 
       - name: Index knowledge base
+        if: steps.openai.outputs.configured == 'true'
         run: python scripts/index_knowledge_base.py --reset
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
 
-      - name: Run pytest (programmatic scenarios + API)
+      - name: Run pytest (integration)
+        if: steps.openai.outputs.configured == 'true'
         run: pytest tests/ -m integration -v --tb=short
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           DIALOG_DB_PATH: ./data/ci_inmyheart.db
 
       - name: Upload KPI database artifact
-        if: always()
+        if: always() && steps.openai.outputs.configured == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: kpi-sqlite
