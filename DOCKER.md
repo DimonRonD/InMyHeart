@@ -148,7 +148,11 @@ docker compose logs -f bot --tail 100
 
 # Остановка / удаление
 docker compose down
-docker compose down -v          # + удалить volume (Chroma и SQLite!)
+docker compose down -v          # только volume INMYHEART (Chroma + SQLite)! Другие проекты не трогает
+
+# НЕ используйте на сервере с другими проектами:
+# docker system prune -a --volumes
+# docker image prune -a
 
 # Только API (без бота)
 docker compose up -d api
@@ -305,19 +309,76 @@ docker compose up --build -d
 Сборка **полного** `requirements.txt` (torch + sentence-transformers) требует **6–8 GB** свободного места.  
 Docker-образ использует **`requirements-docker.txt`** (только OpenAI embeddings) — **~1–2 GB** при сборке.
 
-**Очистка на Debian:**
+**Очистка места (безопасно для других Docker-проектов):**
 
 ```bash
-df -h /
-docker builder prune -a -f
-docker image prune -a -f
+cd /opt/inmyheart
+docker compose down
+docker builder prune -f
 apt-get clean && apt-get autoremove -y
 journalctl --vacuum-size=100M
+df -h /
 ```
+
+**Не запускайте на shared-сервере:** `docker system prune -a`, `docker image prune -a`, `docker volume prune` — затронут чужие образы/volumes.
 
 **Минимум перед `docker compose up --build`:** ~**3 GB** свободно на `/`.
 
 В `.env` обязательно: `EMBEDDING_PROVIDER=openai` (по умолчанию).
+
+---
+
+## 13. Несколько проектов на одном сервере
+
+INMYHEART **не должен** останавливать и удалять чужие контейнеры, если вы работаете **только из каталога проекта**.
+
+### Что изолировано
+
+| Ресурс | Имя INMYHEART | Чужие проекты |
+|--------|---------------|---------------|
+| Compose-проект | `inmyheart` | свои имена |
+| Контейнеры | `inmyheart-api`, `inmyheart-bot` | не трогаются |
+| Volume | `inmyheart_inmyheart-data` | не трогается |
+| Образ | `inmyheart-assistant:latest` | не трогается |
+| Сеть | `inmyheart_default` | отдельная |
+
+### Безопасные команды (только INMYHEART)
+
+Всегда сначала: `cd /opt/inmyheart`
+
+```bash
+docker compose ps
+docker compose up --build -d
+docker compose down
+docker compose logs -f api bot
+docker compose exec api python scripts/index_knowledge_base.py --reset
+docker compose down -v    # удалит ТОЛЬКО volume INMYHEART
+```
+
+### Опасные команды (затронут другие проекты)
+
+| Команда | Риск |
+|---------|------|
+| `docker system prune -a --volumes` | Удалит неиспользуемые образы/volumes **всех** проектов |
+| `docker image prune -a` | Может удалить образы других сервисов |
+| `docker stop $(docker ps -q)` | Остановит **все** контейнеры |
+| `docker rm -f ...` без имён | Случайно удалить не тот контейнер |
+
+### Конфликт порта 8000
+
+Если порт занят другим проектом, в `.env`:
+
+```env
+API_PORT=8010
+```
+
+И в `docker-compose.yml` проброс `${API_PORT:-8000}:8000` подхватит новый порт.
+
+Проверка: `ss -tlnp | grep 8000`
+
+### Конфликт Telegram-бота
+
+Один `TELEGRAM_BOT_TOKEN` — **только один** процесс polling (локально или на сервере). Другие проекты с тем же токеном дадут `Conflict`.
 
 ---
 

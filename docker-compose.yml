@@ -6,6 +6,8 @@
 # Третий контейнер не нужен: индексация встроена в startup API,
 # bot подключается к уже готовому Chroma и SQLite через общий volume.
 
+name: inmyheart
+
 services:
   api:
     build: .
