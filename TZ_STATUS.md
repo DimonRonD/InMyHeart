@@ -1,8 +1,8 @@
 # Статус реализации относительно ТЗ — INMYHEART
 
 **Проект:** AI-ассистент медицинской клиники INMYHEART (RAG)  
-**Дата актуализации:** 26.05.2026  
-**Коммит:** `9529b00` — FastAPI, Telegram-бот, SQLite, pytest CI  
+**Дата актуализации:** 19.05.2026  
+**Коммит:** `51242ce` — graduation deliverables + Docker Compose  
 **Источники:** Техническое задание, `stek.md`, `prompts.md`, `README.md`
 
 Документ предназначен для **пояснительной записки** и фиксирует соответствие прототипа требованиям ТЗ.
@@ -54,9 +54,9 @@
 | № | Канал | Статус | Комментарий |
 |---|-------|--------|-------------|
 | 3.1 | CLI (разработка, отладка) | ✅ | `scripts/assistant_cli.py` |
-| 3.2 | **Telegram-бот** (основной канал по ТЗ) | ✅ | `scripts/telegram_bot.py`, polling |
+| 3.2 | **Telegram-бот** (основной канал по ТЗ) | ✅ | `scripts/telegram_bot.py`, polling; в Docker — контейнер `bot` |
 | 3.3 | Индикатор «печатает» + статус обработки | ✅ | `sendChatAction` + «Бот готовит ответ…» |
-| 3.4 | **FastAPI** REST API | ✅ | `GET /health`, `POST /ask` — `scripts/run_api.py` |
+| 3.4 | **FastAPI** REST API | ✅ | `GET /health`, `POST /ask`; в Docker — контейнер `api` :8000 |
 | 3.5 | Веб-чат (HTML/JS) | ❌ | API готов; UI не реализован |
 | 3.6 | Webhook Telegram (продакшен) | ❌ | Используется polling |
 
@@ -116,6 +116,9 @@
 ```bash
 python scripts/assistant_cli.py --test
 pytest tests/ -m integration -v
+
+# в Docker (нужен OPENAI_API_KEY в .env)
+docker compose exec api pytest tests/ -m integration -v
 ```
 
 ---
@@ -126,9 +129,9 @@ pytest tests/ -m integration -v
 |---|-----------|--------|-------------|
 | 7.1 | Git, структура репозитория | ✅ | https://github.com/DimonRonD/InMyHeart |
 | 7.2 | Конфигурация `.env` | ✅ | `.env.example` |
-| 7.3 | Docker / контейнеризация | ❌ | — |
-| 7.4 | Продакшен-деплой | ❌ | — |
-| 7.5 | Документация проекта | ✅ | `README.md`, `stek.md`, `prompts.md`, `operator_handoff.md` |
+| 7.3 | Docker / контейнеризация | ✅ | `Dockerfile`, `docker-compose.yml` — сервисы `api` + `bot`, volume `inmyheart-data`; см. [`DOCKER.md`](DOCKER.md) |
+| 7.4 | Продакшен-деплой | ⚠️ | Docker Compose на VPS; webhook Telegram и CI/CD — план |
+| 7.5 | Документация проекта | ✅ | `README.md`, `stek.md`, `DOCKER.md`, `prompts.md`, `operator_handoff.md` |
 
 ---
 
@@ -144,10 +147,11 @@ pytest tests/ -m integration -v
 | 6 | FastAPI + healthcheck | ✅ |
 | 7 | Логирование SQLite | ✅ |
 | 8 | Фильтр MED/PII + pytest | ✅ |
-| 9 | Веб-чат | ❌ |
-| 10 | Боевые документы клиники | ❌ |
+| 9 | Docker Compose (api + bot) | ✅ |
+| 10 | Веб-чат | ❌ |
+| 11 | Боевые документы клиники | ❌ |
 
-**Выполнено: 8 из 10 этапов MVP.**
+**Выполнено: 9 из 11 этапов MVP.**
 
 ---
 
@@ -158,6 +162,7 @@ pytest tests/ -m integration -v
 - RAG-пайплайн: индексация, retrieval, генерация с опорой на базу знаний.
 - Маршрутизация и соблюдение ограничений ТЗ (без медицинских консультаций и обработки ПДн).
 - Три канала доступа к ассистенту: CLI, Telegram, REST API (`/ask`).
+- **Docker Compose** для развёртывания на VPS: контейнеры `api` и `bot`, общий volume Chroma/SQLite.
 - Операторский контур: Forum Topics, relay, таймаут сессии, SQLite-логи.
 - Автоматизированное тестирование и фиксация KPI в SQLite.
 
@@ -171,7 +176,7 @@ pytest tests/ -m integration -v
 
 1. Веб-интерфейс чата для пациентов.
 2. Замена `source/` на актуальные документы клиники INMYHEART.
-3. Продакшен-развёртывание (Docker, webhook, мониторинг).
+3. Продакшен-расширения: Telegram webhook, CI/CD деплой, мониторинг (Docker Compose уже готов).
 4. Расширения операторского контура (медиа, авторизация, веб-панель, CRM).
 
 ---
@@ -181,6 +186,7 @@ pytest tests/ -m integration -v
 | Файл | Назначение |
 |------|------------|
 | [`README.md`](README.md) | Быстрый старт |
+| [`DOCKER.md`](DOCKER.md) | Docker Compose |
 | [`stek.md`](stek.md) | Технологический стек |
 | [`prompts.md`](prompts.md) | Системные промпты |
 | [`source/DATA_NOTICE.md`](source/DATA_NOTICE.md) | Статус синтетических данных |
@@ -189,4 +195,4 @@ pytest tests/ -m integration -v
 
 ---
 
-*Документ обновляется при изменении функциональности проекта. Последняя ревизия: 26.05.2026.*
+*Документ обновляется при изменении функциональности проекта. Последняя ревизия: 19.05.2026.*

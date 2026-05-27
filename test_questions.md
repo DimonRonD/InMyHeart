@@ -7,6 +7,19 @@ python scripts/assistant_cli.py --test
 python scripts/assistant_cli.py -q "текст вопроса"
 ```
 
+**Docker** (контейнер `api`, нужен `OPENAI_API_KEY` в `.env`):
+
+```bash
+docker compose up -d api
+docker compose exec api python scripts/assistant_cli.py --test
+docker compose exec api python scripts/assistant_cli.py -q "До скольки работает клиника?"
+curl -X POST http://localhost:8000/ask \
+  -H "Content-Type: application/json" \
+  -d "{\"question\": \"Сколько стоит УЗИ брюшной полости?\", \"user_id\": 1}"
+```
+
+Подробнее — [`DOCKER.md`](DOCKER.md).
+
 После `--test` в корне проекта создаются:
 - `test_log_YYYYMMDD.txt` — вопросы, найденные чанки (лучший помечен), ответы
 - `test_result_YYYYMMDD.txt` — статистика и вердикты AI по качеству (анализ лога)

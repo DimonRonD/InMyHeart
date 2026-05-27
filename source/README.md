@@ -19,3 +19,17 @@
 `podgotovka_<тема>.<формат>`, `pamyatka_<тема>.*`, `FAQ_*`, `raspisanie_*`, `uslugi_*`, `zapis_*`, `poseshchenie_*`
 
 Данные вымышленные, для дипломного прототипа. Перед продакшеном замените на актуальные документы клиники.
+
+## Индексация
+
+Локально:
+
+```bash
+python scripts/index_knowledge_base.py --reset
+```
+
+В Docker (после изменения `source/` — пересборка образа или mount, см. [`DOCKER.md`](../DOCKER.md)):
+
+```bash
+docker compose exec api python scripts/index_knowledge_base.py --reset
+```

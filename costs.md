@@ -135,7 +135,7 @@
 
 | Статья | Конфигурация | USD / мес | USD / год | ₽ / год* |
 |--------|--------------|-----------|-----------|----------|
-| **VPS / облако** | 4 vCPU, 8 GB RAM, 80 GB SSD — FastAPI + Telegram bot + Chroma + SQLite | $35 | **$420** | ~38 600 ₽ |
+| **VPS / облако** | 4 vCPU, 8 GB RAM, 80 GB SSD — **Docker Compose** (`api` + `bot`), Chroma + SQLite в volume | $35 | **$420** | ~38 600 ₽ |
 | **Резервное копирование** | Snapshot БД + Chroma, object storage | $5 | **$60** | ~5 500 ₽ |
 | **Домен + SSL** | Необязательно при работе через Telegram | $0–2 | **$0–24** | 0–2 200 ₽ |
 | **Telegram Bot API** | Официальный API | **$0** | **$0** | 0 ₽ |
@@ -143,7 +143,7 @@
 | **Мониторинг** | Uptime / healthcheck (`/health`) | $0–10 | **$0–120** | 0–11 000 ₽ |
 | **Итого инфраструктура** | | **$40–52** | **≈ $480–624** | **≈ 44 000–57 400 ₽** |
 
-*Примеры провайдеров: Hetzner, Timeweb Cloud, Yandex Cloud (VM + диск).*
+*Примеры провайдеров: Hetzner, Timeweb Cloud, Yandex Cloud (VM + Docker Engine). Развёртывание — [`DOCKER.md`](DOCKER.md).*
 
 ---
 
@@ -241,9 +241,15 @@
 
 1. **Модели:** классификатор и quality check — `gpt-5.4-nano`; RAG-ответ — `gpt-5.4-mini` (сценарий C).
 2. **Embeddings:** `text-embedding-3-small` — достаточно для ~242 чанков.
-3. **Инфра:** один VPS 8 GB; Chroma и SQLite на том же сервере.
+3. **Инфра:** один VPS 8 GB; `docker compose up -d` — Chroma и SQLite в volume `inmyheart-data`.
 4. **Контроль расходов:** лимиты в OpenAI Dashboard, лог `kpi_metrics` в SQLite, алерт при >$300/мес.
 5. **Бюджет на год с запасом:** закладывать **~300 000 ₽** (~$3 300) — покрывает гибрид, инфру и 15% резерв.
+
+---
+
+## 14. Docker
+
+Развёртывание на VPS: [`DOCKER.md`](DOCKER.md) — `docker compose up --build -d`, volume `inmyheart-data`, сервисы `api` (:8000) и `bot`.
 
 ---
 

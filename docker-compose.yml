@@ -1,0 +1,60 @@
+# INMYHEART — Docker Compose (полное руководство: DOCKER.md)
+# Два сервиса на одном образе:
+#   api  — FastAPI (/health, /ask), индексирует Chroma при первом старте
+#   bot  — Telegram polling, ждёт готовности API (общий volume data/)
+#
+# Третий контейнер не нужен: индексация встроена в startup API,
+# bot подключается к уже готовому Chroma и SQLite через общий volume.
+
+services:
+  api:
+    build: .
+    image: inmyheart-assistant:latest
+    container_name: inmyheart-api
+    command: ["python", "scripts/run_api.py"]
+    env_file:
+      - .env
+    environment:
+      API_HOST: 0.0.0.0
+      API_PORT: 8000
+      SOURCE_DIR: /app/source
+      CHROMA_PERSIST_DIR: /app/data/chroma
+      DIALOG_DB_PATH: /app/data/inmyheart.db
+    ports:
+      - "${API_PORT:-8000}:8000"
+    volumes:
+      - inmyheart-data:/app/data
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import json, urllib.request; r=urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=8); d=json.loads(r.read()); exit(0 if d.get('indexed_chunks', 0) > 0 else 1)",
+        ]
+      interval: 15s
+      timeout: 10s
+      retries: 12
+      start_period: 180s
+    restart: unless-stopped
+
+  bot:
+    build: .
+    image: inmyheart-assistant:latest
+    container_name: inmyheart-bot
+    command: ["python", "scripts/telegram_bot.py"]
+    env_file:
+      - .env
+    environment:
+      SOURCE_DIR: /app/source
+      CHROMA_PERSIST_DIR: /app/data/chroma
+      DIALOG_DB_PATH: /app/data/inmyheart.db
+    volumes:
+      - inmyheart-data:/app/data
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  inmyheart-data:

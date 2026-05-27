@@ -4,6 +4,8 @@
 
 **Текущая реализация:** **Forum Topics** — при эскалации создаётся ветка «Клиент @username · id123» в группе `TELEGRAM_OPERATOR_CHAT_ID`; последующие сообщения клиента пересылаются в эту ветку.
 
+**Docker:** бот работает в контейнере `bot`; переменные Telegram — из `.env` (см. [`DOCKER.md`](DOCKER.md)). Связь `user_id → topic` хранится в volume `/app/data/telegram_client_topics.json`.
+
 ---
 
 ## Вариант 1. Уведомление в Telegram-группу операторов (MVP, реализовано)
@@ -26,6 +28,13 @@ TELEGRAM_HANDOFF_MODE=notify
 ```
 
 Группа: создать супергруппу, добавить бота, получить chat id через `@userinfobot` или `getUpdates`.
+
+**Запуск в Docker:**
+
+```bash
+docker compose up -d bot
+docker compose logs -f bot
+```
 
 ---
 
@@ -53,7 +62,7 @@ TELEGRAM_HANDOFF_MODE=notify
 1. Супергруппа операторов с **Topics** (форум), напр. [inmyheartclinic](https://t.me/inmyheartclinic).
 2. При первой **эскалации** бот вызывает `createForumTopic` → «Клиент @username · id123456».
 3. Карточка эскалации и дальнейшие сообщения клиента идут **в эту ветку**.
-4. Связь `user_id → message_thread_id` хранится в `data/telegram_client_topics.json`.
+4. Связь `user_id → message_thread_id` хранится в `data/telegram_client_topics.json` (в Docker — volume `inmyheart-data`).
 
 **Права бота:** администратор + **Управление темами** (Manage Topics).
 
@@ -67,7 +76,9 @@ TELEGRAM_NEW_TOPIC_AFTER_RESET=false
 ```
 
 **Плюсы:** операторы не путают диалоги; история по клиенту в одной ветке.  
-**Минусы:** relay «ответ оператора → клиент» — следующий этап.
+**Минусы:** без relay оператор не отвечает пациенту из ветки (relay реализован — см. `bot/relay.py`).
+
+**Docker:** контейнер `bot`, `.env` как ниже. Не запускайте второй экземпляр бота локально — будет `Conflict` при polling.
 
 ---
 
@@ -131,8 +142,8 @@ TELEGRAM_NEW_TOPIC_AFTER_RESET=false
 
 ## Рекомендуемый путь для диплома
 
-1. **Сейчас:** вариант 1 — бот + группа операторов (`scripts/telegram_bot.py`).
-2. **Демо «живого оператора»:** вариант 2 — reply в группе → ответ пациенту.
-3. **В отчёте:** описать варианты 4–5 как масштабирование.
+1. **Сейчас:** вариант 3 — Forum Topics + relay (`docker compose up -d bot` или `python scripts/telegram_bot.py`).
+2. **Демо «живого оператора»:** reply в ветке клиента → ответ пациенту с реакцией ✅.
+3. **В отчёте:** описать варианты 4–5 как масштабирование; развёртывание — [`DOCKER.md`](DOCKER.md).
 
-Связанные файлы: `bot/operator.py`, `bot/app.py`, `prompts.md` §6 (handoff).
+Связанные файлы: `bot/operator.py`, `bot/app.py`, `prompts.md` §6 (handoff), `docker-compose.yml`.

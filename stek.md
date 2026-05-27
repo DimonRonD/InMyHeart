@@ -31,6 +31,7 @@ flowchart TB
         API[FastAPI /ask + /health]
         LLM[OpenAI Chat — генерация ответа]
         SQL[(SQLite — логи и KPI)]
+        DOCK[Docker Compose — api + bot]
     end
 
     DOC --> GEN
@@ -54,6 +55,7 @@ flowchart TB
 | Интерфейс пользователя | Реализовано (MVP) | Telegram-бот, CLI, FastAPI |
 | Backend API | Реализовано (MVP) | FastAPI `/health`, `/ask` |
 | Логи и KPI | Реализовано | SQLite `data/inmyheart.db` |
+| Контейнеризация | Реализовано | Docker Compose: `api` + `bot`, volume `inmyheart-data` |
 
 ---
 
@@ -65,6 +67,7 @@ flowchart TB
 | Виртуальное окружение | **venv** | `python -m venv venv` |
 | Менеджер пакетов | **pip** | Зависимости в `requirements.txt` |
 | ОС разработки | Windows 10/11 | Пути, кодировка UTF-8 в скриптах |
+| Продакшен / VPS | **Docker Compose** | Python 3.12-slim, см. [`DOCKER.md`](DOCKER.md) |
 | Конфигурация | **python-dotenv** | Секреты в `.env` (не в git) |
 
 ---
@@ -152,6 +155,18 @@ flowchart TB
 | `scripts/source_content.py` | Уникальные тексты FAQ и каталог услуг |
 | `scripts/index_knowledge_base.py` | Индексация в Chroma (`--reset`, `--dry-run`) |
 | `scripts/query_knowledge_base.py` | Тестовый семантический поиск с выводом `source_file` |
+| `scripts/build_presentation.py` | Генерация `Презентация_INMYHEART.pptx` |
+
+### 5.1. Docker
+
+| Файл | Назначение |
+|------|------------|
+| `Dockerfile` | Образ приложения (Python 3.12, `source/`, RAG, bot, api) |
+| `docker-compose.yml` | Сервисы `api` (порт 8000) и `bot` (Telegram polling) |
+| `.dockerignore` | Исключение venv, `.env`, локального `data/` из образа |
+| `DOCKER.md` | Руководство: запуск, volume, переиндексация, troubleshooting |
+
+Запуск: `docker compose up --build -d` — подробности в **`DOCKER.md`**.
 
 ---
 
@@ -197,8 +212,19 @@ flowchart TB
 - **CLI** — индексация и ассистент
 - **FastAPI** — `scripts/run_api.py`, эндпоинты `/health`, `/ask`
 - **Telegram-бот** — `scripts/telegram_bot.py`, Forum Topics, relay, SQLite
+- **Docker Compose** — `api` + `bot`, общий volume Chroma/SQLite
 
-### 7.2. По техническому заданию (осталось)
+### 7.2. Docker (продакшен MVP)
+
+| Контейнер | Процесс | Порт | Данные |
+|-----------|---------|------|--------|
+| `api` | uvicorn + FastAPI | 8000 | индексация Chroma при первом старте |
+| `bot` | python-telegram-bot polling | — | читает тот же Chroma и SQLite |
+
+Переменные путей в контейнере: `/app/source`, `/app/data/chroma`, `/app/data/inmyheart.db`.  
+См. [`DOCKER.md`](DOCKER.md).
+
+### 7.3. По техническому заданию (осталось)
 
 | Интерфейс | Технология | Назначение |
 |-----------|------------|------------|
@@ -228,8 +254,10 @@ flowchart TB
 | `SOURCE_DIR` | Путь к `source/` |
 | `CHROMA_PERSIST_DIR` | Путь к `data/chroma/` |
 | `CHROMA_COLLECTION` | Имя коллекции Chroma |
+| `API_HOST` | `127.0.0.1` локально; в Docker переопределяется на `0.0.0.0` |
+| `DIALOG_DB_PATH` | Путь к SQLite (в Docker: `/app/data/inmyheart.db`) |
 
-Шаблон без секретов: **`.env.example`**.
+Шаблон без секретов: **`.env.example`**. В Docker секреты подключаются через `env_file: .env` в `docker-compose.yml`.
 
 ---
 
@@ -239,13 +267,14 @@ flowchart TB
 |------------|------------|
 | **Git** | Контроль версий |
 | **GitHub** | Удалённый репозиторий [DimonRonD/InMyHeart](https://github.com/DimonRonD/InMyHeart) |
+| **Docker / Compose** | Образ `inmyheart-assistant`, сервисы `api` + `bot` |
 | **Cursor IDE** | Разработка с AI-ассистентом |
 | **Yandex.Disk** | Синхронизация рабочей копии проекта |
 
 ### Исключения из git (`.gitignore`)
 
 - `.env` — ключи API
-- `data/chroma/` — векторный индекс (пересобирается)
+- `data/chroma/` — векторный индекс (пересобирается; в Docker — volume `inmyheart-data`)
 - `venv/`, `__pycache__/`
 - `source.zip` — архив-дубликат
 
@@ -297,8 +326,9 @@ pypdf>=5.0.0
 | ✅ 6 | FastAPI + healthcheck | uvicorn, `/health`, `/ask` |
 | ✅ 7 | Логирование диалогов | SQLite + PII redact |
 | ✅ 8 | Фильтр MED/PII + pytest | классификатор + `tests/` |
-| 🔲 9 | Веб-чат | HTML → FastAPI |
-| 🔲 10 | Боевые документы клиники | замена `source/` |
+| ✅ 9 | Docker Compose | `Dockerfile`, `api` + `bot`, [`DOCKER.md`](DOCKER.md) |
+| 🔲 10 | Веб-чат | HTML → FastAPI |
+| 🔲 11 | Боевые документы клиники | замена `source/` |
 
 ---
 
@@ -307,6 +337,7 @@ pypdf>=5.0.0
 | Файл | Содержание |
 |------|------------|
 | `README.md` | Быстрый старт |
+| `DOCKER.md` | Docker Compose: api + bot |
 | `chunck_splitting.md` | Стратегии разбиения на чанки |
 | `Техническое задание.docx` | Требования, KPI, сценарии |
 | `TZ_STATUS.md` | Статус реализации vs ТЗ (пояснительная записка) |
@@ -315,4 +346,4 @@ pypdf>=5.0.0
 
 ---
 
-*Документ актуален для MVP: RAG, CLI, FastAPI, Telegram-бот, SQLite-логи, pytest. База `source/` — синтетическая (см. `source/DATA_NOTICE.md`).*
+*Документ актуален для MVP: RAG, CLI, FastAPI, Telegram-бот, Docker Compose, SQLite-логи, pytest. База `source/` — синтетическая (см. `source/DATA_NOTICE.md`).*

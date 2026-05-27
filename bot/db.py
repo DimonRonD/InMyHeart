@@ -84,6 +84,7 @@ def db_connection() -> Iterator[sqlite3.Connection]:
 def init_db() -> None:
     with db_connection() as conn:
         conn.executescript(SCHEMA)
+        conn.execute("PRAGMA journal_mode=WAL")
 
 
 def insert_dialog_event(
