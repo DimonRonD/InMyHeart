@@ -7,15 +7,15 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends \
-        build-essential \
-        curl \
-    && rm -rf /var/lib/apt/lists/*
+COPY requirements-docker.txt .
 
-COPY requirements.txt .
-RUN pip install --upgrade pip \
-    && pip install -r requirements.txt
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends build-essential curl \
+    && pip install --upgrade pip \
+    && pip install -r requirements-docker.txt \
+    && apt-get purge -y build-essential \
+    && apt-get autoremove -y \
+    && rm -rf /var/lib/apt/lists/*
 
 COPY api/ api/
 COPY bot/ bot/

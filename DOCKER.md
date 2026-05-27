@@ -298,6 +298,26 @@ docker compose up --build -d
 | Forum Topics → #General | В BotFather включите **Manage Topics** для бота в группе операторов |
 | `Conflict: terminated by other getUpdates` | Один экземпляр бота: `docker compose down`, убить локальный `telegram_bot.py` |
 | База SQLite locked | Убедитесь, что WAL включён; не запускайте второй локальный процесс на том же `data/` |
+| **`No space left on device` при сборке** | Диск VPS переполнен. См. §11.1 |
+
+### 11.1. Мало места на диске (VPS 10 GB)
+
+Сборка **полного** `requirements.txt` (torch + sentence-transformers) требует **6–8 GB** свободного места.  
+Docker-образ использует **`requirements-docker.txt`** (только OpenAI embeddings) — **~1–2 GB** при сборке.
+
+**Очистка на Debian:**
+
+```bash
+df -h /
+docker builder prune -a -f
+docker image prune -a -f
+apt-get clean && apt-get autoremove -y
+journalctl --vacuum-size=100M
+```
+
+**Минимум перед `docker compose up --build`:** ~**3 GB** свободно на `/`.
+
+В `.env` обязательно: `EMBEDDING_PROVIDER=openai` (по умолчанию).
 
 ---
 

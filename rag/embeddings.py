@@ -3,7 +3,6 @@ from __future__ import annotations
 
 from langchain_core.embeddings import Embeddings
 from langchain_openai import OpenAIEmbeddings
-from langchain_huggingface import HuggingFaceEmbeddings
 
 from rag.config import (
     EMBEDDING_PROVIDER,
@@ -45,6 +44,15 @@ def get_embeddings() -> Embeddings:
     if EMBEDDING_PROVIDER == "openai":
         api_key = validate_openai_api_key()
         return OpenAIEmbeddings(model=OPENAI_EMBEDDING_MODEL, api_key=api_key)
+
+    try:
+        from langchain_huggingface import HuggingFaceEmbeddings
+    except ImportError as exc:
+        raise ImportError(
+            "EMBEDDING_PROVIDER=huggingface требует langchain-huggingface и "
+            "sentence-transformers (pip install -r requirements.txt). "
+            "В Docker используйте EMBEDDING_PROVIDER=openai."
+        ) from exc
 
     return HuggingFaceEmbeddings(
         model_name=HUGGINGFACE_EMBEDDING_MODEL,
