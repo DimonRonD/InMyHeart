@@ -303,6 +303,7 @@ docker compose up --build -d
 | `Conflict: terminated by other getUpdates` | Один экземпляр бота: `docker compose down`, убить локальный `telegram_bot.py` |
 | База SQLite locked | Убедитесь, что WAL включён; не запускайте второй локальный процесс на том же `data/` |
 | **`No space left on device` при сборке** | Диск VPS переполнен. См. §11.1 |
+| **`readonly database` (Chroma 1032)** | Повреждён volume или права. См. §11.2 |
 
 ### 11.1. Мало места на диске (VPS 10 GB)
 
@@ -325,6 +326,29 @@ df -h /
 **Минимум перед `docker compose up --build`:** ~**3 GB** свободно на `/`.
 
 В `.env` обязательно: `EMBEDDING_PROVIDER=openai` (по умолчанию).
+
+### 11.2. Chroma: `readonly database` (code 1032)
+
+Обычно после неудачной индексации (диск был полон) volume `inmyheart_inmyheart-data` содержит **битые** файлы Chroma.
+
+**Только INMYHEART** — другие проекты не затрагиваются:
+
+```bash
+cd /opt/inmyheart
+docker compose down
+docker volume rm inmyheart_inmyheart-data
+git pull
+docker compose up --build -d
+docker compose logs -f api
+```
+
+Если не хотите удалять volume — сброс внутри контейнера:
+
+```bash
+docker compose run --rm --entrypoint "" api \
+  sh -c "rm -rf /app/data/chroma/* && chmod -R 777 /app/data"
+docker compose up -d --force-recreate api bot
+```
 
 ---
 

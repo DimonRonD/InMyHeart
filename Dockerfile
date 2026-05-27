@@ -23,8 +23,12 @@ COPY rag/ rag/
 COPY scripts/ scripts/
 COPY source/ source/
 COPY prompts.md chunck_splitting.md ./
+COPY scripts/docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 
-RUN mkdir -p /app/data/chroma
+RUN mkdir -p /app/data/chroma \
+    && chmod +x /usr/local/bin/docker-entrypoint.sh
+
+ENTRYPOINT ["docker-entrypoint.sh"]
 
 # api | bot — задаётся в docker-compose.yml
 # Документация: DOCKER.md

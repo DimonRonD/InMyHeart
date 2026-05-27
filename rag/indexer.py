@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import shutil
 from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
@@ -11,6 +12,11 @@ from rag.config import CHROMA_DIR, SOURCE_DIR
 from rag.embeddings import get_embeddings
 from rag.models import TextChunk
 from rag.store import add_chunks, get_vector_store
+
+
+def _is_chroma_readonly_error(exc: BaseException) -> bool:
+    msg = str(exc).lower()
+    return "readonly" in msg or "1032" in msg
 
 
 class KnowledgeBaseIndexer:
@@ -26,6 +32,17 @@ class KnowledgeBaseIndexer:
         return chunk_source_directory(self.source_dir)
 
     def index(self, *, reset: bool = False) -> dict:
+        try:
+            return self._index_once(reset=reset)
+        except Exception as exc:
+            if not _is_chroma_readonly_error(exc):
+                raise
+            if CHROMA_DIR.exists():
+                shutil.rmtree(CHROMA_DIR)
+            CHROMA_DIR.mkdir(parents=True, exist_ok=True)
+            return self._index_once(reset=True)
+
+    def _index_once(self, *, reset: bool = False) -> dict:
         chunks = self.build_chunks()
         embeddings = get_embeddings()
         store = get_vector_store(embeddings, reset=reset)

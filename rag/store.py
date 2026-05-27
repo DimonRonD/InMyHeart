@@ -1,6 +1,9 @@
 # -*- coding: utf-8 -*-
 from __future__ import annotations
 
+import os
+import shutil
+
 from langchain_chroma import Chroma
 from langchain_core.embeddings import Embeddings
 
@@ -8,12 +11,20 @@ from rag.config import CHROMA_DIR, COLLECTION_NAME
 from rag.models import TextChunk
 
 
+def _ensure_writable_dir(path) -> None:
+    path.mkdir(parents=True, exist_ok=True)
+    try:
+        os.chmod(path, 0o777)
+    except OSError:
+        pass
+
+
 def get_vector_store(embeddings: Embeddings, *, reset: bool = False) -> Chroma:
-    CHROMA_DIR.mkdir(parents=True, exist_ok=True)
+    _ensure_writable_dir(CHROMA_DIR.parent)
+    _ensure_writable_dir(CHROMA_DIR)
     if reset and CHROMA_DIR.exists():
-        import shutil
         shutil.rmtree(CHROMA_DIR)
-        CHROMA_DIR.mkdir(parents=True, exist_ok=True)
+        _ensure_writable_dir(CHROMA_DIR)
 
     return Chroma(
         collection_name=COLLECTION_NAME,
